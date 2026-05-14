@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>PEF 氣喘管理工具</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif;background:#f4f6fa;color:#1a2340;overflow-x:hidden;min-height:100vh}
+:root{
+  --blue:#2563eb;--blue-l:#eff6ff;--blue-b:#bfdbfe;
+  --green:#16a34a;--green-l:#f0fdf4;--green-b:#86efac;
+  --yellow:#d97706;--yellow-l:#fffbeb;--yellow-b:#fcd34d;
+  --red:#dc2626;--red-l:#fff1f2;--red-b:#fca5a5;
+  --orange:#ea580c;--orange-l:#fff7ed;--orange-b:#fdba74;
+  --card:#fff;--bg:#f4f6fa;--bg2:#eef1f7;
+  --border:#e2e8f0;--text:#1a2340;--sub:#5a6a8a;
+  --shadow:0 1px 4px rgba(0,0,0,.07);
+}
+
+/* ── MODE SELECT ── */
+#modeSelect{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:24px;background:linear-gradient(135deg,#eff6ff 0%,#f0fdf4 100%)}
+.mode-logo{font-size:48px;margin-bottom:12px}
+.mode-title{font-size:22px;font-weight:700;color:var(--text);margin-bottom:4px}
+.mode-sub{font-size:13px;color:var(--sub);margin-bottom:32px;text-align:center;line-height:1.6}
+.mode-cards{display:grid;grid-template-columns:1fr 1fr;gap:14px;width:100%;max-width:360px}
+.mode-card{background:var(--card);border-radius:16px;padding:24px 16px;text-align:center;cursor:pointer;border:2px solid var(--border);transition:all .2s;box-shadow:var(--shadow)}
+.mode-card:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.1)}
+.mode-card.doc{border-color:var(--blue-b)}
+.mode-card.doc:hover{background:var(--blue-l)}
+.mode-card.pat{border-color:var(--green-b)}
+.mode-card.pat:hover{background:var(--green-l)}
+.mode-icon{font-size:32px;margin-bottom:8px}
+.mode-name{font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px}
+.mode-desc{font-size:11px;color:var(--sub);line-height:1.5}
+.mode-note{font-size:11px;color:var(--sub);margin-top:20px;text-align:center}
+
+/* ── APP SHELL ── */
+#appShell{display:none}
+.top-bar{background:var(--card);border-bottom:1px solid var(--border);padding:10px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:var(--shadow)}
+.top-bar-left{display:flex;align-items:center;gap:8px}
+.top-bar-icon{font-size:20px}
+.top-bar-title{font-size:15px;font-weight:700;color:var(--text)}
+.top-bar-mode{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:600}
+.mode-doc .top-bar-mode{background:var(--blue-l);color:var(--blue)}
+.mode-pat .top-bar-mode{background:var(--green-l);color:var(--green)}
+.switch-btn{font-size:11px;color:var(--sub);background:none;border:1px solid var(--border);border-radius:8px;padding:4px 10px;cursor:pointer;font-family:inherit}
+
+/* ── BOTTOM NAV ── */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--border);display:flex;z-index:100;box-shadow:0 -2px 8px rgba(0,0,0,.06)}
+.bnav{flex:1;padding:10px 4px 8px;text-align:center;cursor:pointer;font-size:10px;color:var(--sub);border:none;background:none;font-family:inherit;transition:.15s}
+.bnav.on{color:var(--blue);font-weight:700}
+.bnav-icon{font-size:20px;display:block;margin-bottom:2px}
+.content{padding:14px 14px 80px}
+
+/* ── PAGE ── */
+.page{display:none}.page.on{display:block}
+
+/* ── CARD ── */
+.card{background:var(--card);border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:var(--shadow);border:1px solid var(--border)}
+.card-title{font-size:11px;font-weight:700;color:var(--sub);letter-spacing:.06em;text-transform:uppercase;margin-bottom:12px}
+
+/* ── FORM ── */
+.field{margin-bottom:10px}
+.field label{display:block;font-size:12px;color:var(--sub);margin-bottom:4px;font-weight:500}
+.field input,.field select{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:15px;font-family:inherit;color:var(--text);background:#fff;transition:.15s}
+.field input:focus,.field select:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+.field .hint{font-size:11px;color:var(--sub);margin-top:3px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.g-btn{flex:1;padding:9px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;cursor:pointer;background:#f8fafc;color:var(--text);font-family:inherit;font-weight:500;transition:.15s}
+.g-btn.on{background:var(--blue-l);border-color:var(--blue);color:var(--blue)}
+.g-row{display:flex;gap:8px}
+
+/* ── PEF RESULT ── */
+.pef-input{width:120px;font-size:20px;font-weight:700;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'IBM Plex Mono',monospace;color:var(--text);background:#fff}
+.pef-input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+.result-panel{border-radius:10px;padding:12px 14px;margin-top:10px;border:1.5px solid var(--border);background:#f8fafc;transition:.3s}
+.result-panel.g{background:var(--green-l);border-color:var(--green-b)}
+.result-panel.y{background:var(--yellow-l);border-color:var(--yellow-b)}
+.result-panel.r{background:var(--red-l);border-color:var(--red-b)}
+.result-row{display:flex;align-items:center;gap:12px}
+.dot{width:38px;height:38px;border-radius:50%;flex-shrink:0;background:var(--border);transition:.3s}
+.dot.g{background:var(--green)}.dot.y{background:var(--yellow)}.dot.r{background:var(--red)}
+.result-main{font-size:20px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:var(--text)}
+.result-sub{font-size:12px;color:var(--sub);margin-top:3px;line-height:1.5}
+.pct-badge{display:inline-block;font-size:13px;font-weight:700;padding:1px 8px;border-radius:8px;margin-left:5px;font-family:'IBM Plex Mono',monospace}
+.pct-g{background:#bbf7d0;color:#14532d}
+.pct-y{background:#fde68a;color:#78350f}
+.pct-r{background:#fecaca;color:#7f1d1d}
+
+/* ── ZONE TABLE ── */
+.zone-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px}
+.zc{border-radius:8px;padding:8px 6px;text-align:center;border:1px solid transparent}
+.zc-g{background:#dcfce7;border-color:#86efac}.zc-y{background:#fef9c3;border-color:#fcd34d}.zc-r{background:#fee2e2;border-color:#fca5a5}
+.zc-lbl{font-size:10px;font-weight:700;margin-bottom:3px}
+.zc-g .zc-lbl,.zc-g .zc-val{color:#14532d}
+.zc-y .zc-lbl,.zc-y .zc-val{color:#78350f}
+.zc-r .zc-lbl,.zc-r .zc-val{color:#7f1d1d}
+.zc-val{font-size:11px;font-weight:600;font-family:'IBM Plex Mono',monospace}
+
+/* ── VARIABILITY ── */
+.var-toggle{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--sub);cursor:pointer;background:none;border:none;padding:0;font-family:inherit;margin-top:8px}
+.var-body{margin-top:10px;display:none}
+.var-body.open{display:block}
+.var-inputs{display:flex;align-items:flex-end;gap:8px;margin-bottom:8px}
+.var-inputs .field{margin:0;flex:1}
+.var-sep{font-size:18px;color:var(--sub);padding-bottom:6px}
+.var-result{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;background:#f8fafc;border:1px solid var(--border)}
+.var-result.warn{background:var(--orange-l);border-color:var(--orange-b)}
+.var-num{font-size:20px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:var(--text);min-width:48px}
+.var-msg{font-size:12px;color:var(--sub);line-height:1.5}
+
+/* ── ACT ── */
+.act-q{border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px;background:#fafafa}
+.act-qtxt{font-size:12px;color:var(--sub);margin-bottom:7px;line-height:1.6}
+.act-qnum{font-weight:700;color:var(--text)}
+.opts{display:flex;flex-wrap:wrap;gap:5px}
+.opt{padding:4px 10px;border-radius:14px;border:1.5px solid var(--border);font-size:12px;cursor:pointer;background:#fff;color:var(--text);font-family:inherit;transition:.15s;line-height:1.4}
+.opt.on{background:var(--blue-l);border-color:var(--blue);color:var(--blue);font-weight:700}
+.act-total{display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg2);border-radius:8px;margin-top:8px}
+.act-score{font-size:30px;font-weight:700;font-family:'IBM Plex Mono',monospace;color:var(--text);min-width:46px}
+.act-label{font-size:13px;color:var(--sub);line-height:1.6}
+
+/* ── REPORT ── */
+.report-box{font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--text);background:var(--bg2);border-radius:8px;padding:12px;white-space:pre-wrap;line-height:1.8;min-height:56px;margin-bottom:10px;border:1px solid var(--border)}
+.copy-btn{width:100%;padding:12px;background:var(--blue);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:.15s}
+.copy-btn:active{transform:scale(.97);background:#1d4ed8}
+.copy-btn.done{background:var(--green)}
+
+/* ── SOURCE BADGES ── */
+.src{display:inline-block;font-size:10px;padding:2px 6px;border-radius:4px;font-family:'IBM Plex Mono',monospace;margin-right:4px;margin-top:4px}
+.src-tw{background:#fef9c3;color:#78350f;border:1px solid #fcd34d}
+.src-gina{background:var(--blue-l);color:var(--blue);border:1px solid var(--blue-b)}
+.src-nhi{background:#f0fdf4;color:#14532d;border:1px solid #86efac}
+.info-box{background:var(--blue-l);border:1px solid var(--blue-b);border-radius:8px;padding:10px 12px;font-size:12px;color:#1d4ed8;line-height:1.7;margin-top:8px}
+.warn-box{background:var(--orange-l);border:1px solid var(--orange-b);border-radius:8px;padding:10px 12px;font-size:12px;color:#9a3412;line-height:1.7;margin-top:8px}
+
+/* ── SAVE BTN ── */
+.save-btn{width:100%;padding:12px;background:var(--green);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:.15s}
+.save-btn:active{transform:scale(.97)}
+
+/* ── HISTORY ── */
+.tab-row{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tab-row::-webkit-scrollbar{display:none}
+.htab{padding:5px 14px;border-radius:14px;border:1.5px solid var(--border);font-size:12px;font-weight:600;cursor:pointer;background:#fff;color:var(--sub);white-space:nowrap;font-family:inherit;transition:.15s}
+.htab.on{background:var(--blue);border-color:var(--blue);color:#fff}
+.chart-wrap{position:relative;height:190px;margin-top:6px}
+.c-legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.c-leg{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--sub)}
+.c-dot{width:9px;height:9px;border-radius:50%}
+.rec-item{padding:11px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;cursor:pointer;transition:.1s}
+.rec-item:last-child{border:none}
+.rec-item:active{background:#f8fafc}
+.rec-date{font-size:11px;color:var(--sub);font-family:'IBM Plex Mono',monospace;min-width:80px}
+.rec-pef{font-size:15px;font-weight:700;font-family:'IBM Plex Mono',monospace}
+.rec-right{margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.zbadge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700}
+.zbadge-g{background:#dcfce7;color:#14532d}
+.zbadge-y{background:#fef9c3;color:#78350f}
+.zbadge-r{background:#fee2e2;color:#7f1d1d}
+.rec-meta{font-size:10px;color:var(--sub)}
+.empty{text-align:center;padding:32px 16px;color:var(--sub);font-size:13px}
+
+/* ── SETTINGS ── */
+.set-row{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--border)}
+.set-row:last-child{border:none}
+.set-lbl{font-size:14px;font-weight:500}
+.set-hint{font-size:11px;color:var(--sub);margin-top:1px}
+.set-val{font-size:13px;color:var(--blue);font-weight:700;font-family:'IBM Plex Mono',monospace}
+.export-btn{width:100%;padding:11px;border:1.5px solid var(--blue);color:var(--blue);background:#fff;border-radius:10px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;margin-top:8px}
+.danger-btn{width:100%;padding:10px;border:1px solid var(--red-b);color:var(--red);background:#fff;border-radius:8px;font-size:13px;font-family:inherit;cursor:pointer;margin-top:8px}
+
+/* ── MODAL ── */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;align-items:flex-end}
+.modal-bg.open{display:flex}
+.modal{background:#fff;border-radius:18px 18px 0 0;padding:18px 16px 36px;width:100%;max-height:85vh;overflow-y:auto}
+.modal-title{font-size:15px;font-weight:700;margin-bottom:14px}
+.modal-close{float:right;background:none;border:none;font-size:22px;color:var(--sub);cursor:pointer;padding:0 2px;line-height:1}
+.del-btn{width:100%;padding:10px;border:1px solid var(--red-b);color:var(--red);background:#fff;border-radius:8px;font-size:13px;font-family:inherit;cursor:pointer;margin-top:14px}
+
+/* ── UTIL ── */
+.mt8{margin-top:8px}.mt12{margin-top:12px}
+.pred-show{font-size:13px;color:var(--sub);margin-top:8px;line-height:1.8}
+.mono{font-family:'IBM Plex Mono',monospace}
+</style>
+</head>
+<body>
+
+<!-- ═══ MODE SELECT ═══ -->
+<div id="modeSelect">
+  <div class="mode-logo"><svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" width="56" height="56"><rect width="64" height="64" rx="16" fill="#eff6ff"/><path d="M32 14 C32 14 28 14 28 18 L28 28 C22 28 16 33 16 40 C16 47 20 52 26 52 C29 52 31 50 32 48 C33 50 35 52 38 52 C44 52 48 47 48 40 C48 33 42 28 36 28 L36 18 C36 14 32 14 32 14Z" fill="#bfdbfe" stroke="#2563eb" stroke-width="2.5" stroke-linejoin="round"/><line x1="32" y1="14" x2="32" y2="36" stroke="#2563eb" stroke-width="2" stroke-dasharray="3 3"/></svg></div>
+  <div class="mode-title">PEF 氣喘管理工具</div>
+  <div class="mode-sub">尖峰呼氣流速 · ACT · 早晚變異度<br>請選擇使用模式</div>
+  <div class="mode-cards">
+    <div class="mode-card doc" onclick="enterMode('doc')">
+      <div class="mode-icon"><svg viewBox="0 0 48 48" fill="none" width="40" height="40"><circle cx="24" cy="14" r="8" fill="#bfdbfe" stroke="#2563eb" stroke-width="2"/><path d="M8 42 C8 32 16 28 24 28 C32 28 40 32 40 42" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round" fill="none"/><rect x="28" y="34" width="10" height="6" rx="3" fill="#bfdbfe" stroke="#2563eb" stroke-width="1.5"/><line x1="33" y1="34" x2="33" y2="40" stroke="#2563eb" stroke-width="1.5"/><line x1="30" y1="37" x2="36" y2="37" stroke="#2563eb" stroke-width="1.5"/></svg></div>
+      <div class="mode-name">醫師模式</div>
+      <div class="mode-desc">診間快速計算<br>一鍵複製報告</div>
+    </div>
+    <div class="mode-card pat" onclick="enterMode('pat')">
+      <div class="mode-icon"><svg viewBox="0 0 48 48" fill="none" width="40" height="40"><circle cx="24" cy="14" r="8" fill="#bbf7d0" stroke="#16a34a" stroke-width="2"/><path d="M8 42 C8 32 16 28 24 28 C32 28 40 32 40 42" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" fill="none"/><polyline points="18,34 22,38 30,30" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg></div>
+      <div class="mode-name">病人模式</div>
+      <div class="mode-desc">長期自我監測<br>趨勢圖 · 存檔</div>
+    </div>
+  </div>
+  <div class="mode-note">選擇後可隨時從右上角切換</div>
+</div>
+
+<!-- ═══ APP SHELL ═══ -->
+<div id="appShell">
+  <div class="top-bar">
+    <div class="top-bar-left">
+      <svg viewBox="0 0 32 32" fill="none" width="22" height="22" style="flex-shrink:0"><path d="M16 4C16 4 13 4 13 7L13 14C9 14 5 17.5 5 22C5 26 8 29 12 29C14 29 15.5 28 16 27C16.5 28 18 29 20 29C24 29 27 26 27 22C27 17.5 23 14 19 14L19 7C19 4 16 4 16 4Z" fill="#bfdbfe" stroke="#2563eb" stroke-width="1.8" stroke-linejoin="round"/><line x1="16" y1="4" x2="16" y2="18" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="2 2"/></svg>
+      <span class="top-bar-title">PEF 氣喘管理</span>
+      <span class="top-bar-mode" id="modeLabel"></span>
+    </div>
+    <button class="switch-btn" onclick="switchMode()">切換模式</button>
+  </div>
+
+  <!-- ── DOC MODE ── -->
+  <div id="docMode" style="display:none">
+    <div class="content">
+
+      <!-- 基本資料 -->
+      <div class="card">
+        <div class="card-title">基本資料</div>
+        <div class="field"><label>日期</label><input type="date" id="d-date"></div>
+        <div class="field">
+          <label>性別</label>
+          <div class="g-row">
+            <button class="g-btn on" id="d-bM" onclick="dSetG('M')">男</button>
+            <button class="g-btn" id="d-bF" onclick="dSetG('F')">女</button>
+          </div>
+        </div>
+        <div class="row2">
+          <div class="field"><label>身高 (cm)</label><input type="number" id="d-ht" placeholder="165" min="100" max="220" inputmode="numeric"></div>
+          <div class="field"><label>年齡 (歲)</label><input type="number" id="d-ag" placeholder="40" min="1" max="120" inputmode="numeric"></div>
+        </div>
+      </div>
+
+      <!-- PEF -->
+      <div class="card">
+        <div class="card-title">PEF 實測值</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <input class="pef-input" type="number" id="d-pef" placeholder="450" min="50" max="900" inputmode="numeric">
+          <span style="font-size:13px;color:var(--sub)">L/min</span>
+        </div>
+        <div class="result-panel" id="d-result" style="display:none">
+          <div class="result-row">
+            <div class="dot" id="d-dot"></div>
+            <div>
+              <div class="result-main" id="d-rmain">—</div>
+              <div class="result-sub" id="d-rsub"></div>
+            </div>
+          </div>
+        </div>
+        <div class="zone-grid" id="d-zones" style="display:none">
+          <div class="zc zc-g"><div class="zc-lbl">🟢 綠燈</div><div class="zc-val" id="d-zg">—</div></div>
+          <div class="zc zc-y"><div class="zc-lbl">🟡 黃燈</div><div class="zc-val" id="d-zy">—</div></div>
+          <div class="zc zc-r"><div class="zc-lbl">🔴 紅燈</div><div class="zc-val" id="d-zr">—</div></div>
+        </div>
+        <div style="margin-top:6px">
+          <span class="src src-tw">衛福部國健署</span>
+          <span style="font-size:10px;color:var(--sub)">綠≥80%　黃60–79%　紅&lt;60%</span>
+        </div>
+
+        <!-- 變異度選配 -->
+        <button class="var-toggle" id="d-varToggle" onclick="dToggleVar()">
+          <span id="d-varArrow">▶</span> 早晚變異度（選配）
+        </button>
+        <div class="var-body" id="d-varBody">
+          <div class="var-inputs">
+            <div class="field"><label>早晨 L/min</label><input type="number" id="d-am" placeholder="早" min="50" max="900" inputmode="numeric"></div>
+            <div class="var-sep">↔</div>
+            <div class="field"><label>傍晚 L/min</label><input type="number" id="d-pm" placeholder="晚" min="50" max="900" inputmode="numeric"></div>
+          </div>
+          <div class="var-result" id="d-varResult" style="display:none">
+            <div>
+              <div style="font-size:10px;color:var(--sub);margin-bottom:1px">日內變異度</div>
+              <div class="var-num" id="d-varNum">—</div>
+            </div>
+            <div class="var-msg" id="d-varMsg"></div>
+          </div>
+          <div style="font-size:10px;color:var(--sub);margin-top:6px">
+            <span class="src src-nhi">健保署</span>(最高−最低)÷最高×100%　成人&gt;20%=不穩定<br>
+            <span class="src src-gina">GINA 2022–2026</span>診斷門檻：成人&gt;10%
+          </div>
+        </div>
+      </div>
+
+      <!-- ACT -->
+      <div class="card">
+        <div class="card-title">ACT 氣喘控制測試</div>
+        <div id="d-actWrap"></div>
+        <div class="act-total">
+          <div class="act-score" id="d-actScore">—</div>
+          <div class="act-label" id="d-actLabel">請完成所有 5 題</div>
+        </div>
+        <div style="margin-top:6px">
+          <span class="src src-gina">GINA 2022–2026</span>
+          <span style="font-size:10px;color:var(--sub)">≥20 控制良好　16–19 部分控制　≤15 未控制</span>
+        </div>
+      </div>
+
+      <!-- 報告 -->
+      <div class="card">
+        <div class="card-title">報告複製</div>
+        <div class="report-box" id="d-report">（請輸入 PEF 後自動產生）</div>
+        <button class="copy-btn" id="d-copyBtn" onclick="dCopy()">
+          一鍵複製報告
+        </button>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /docMode -->
+
+  <!-- ── PATIENT MODE ── -->
+  <div id="patMode" style="display:none">
+    <div class="bottom-nav" id="patNav">
+      <button class="bnav on" id="pn0" onclick="patPage(0)"><span class="bnav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><rect x="4" y="4" width="16" height="16" rx="2"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="13" y2="14"/></svg></span>記錄</button>
+      <button class="bnav" id="pn1" onclick="patPage(1)"><span class="bnav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><polyline points="4 17 9 12 13 16 20 7"/><line x1="4" y1="20" x2="20" y2="20"/></svg></span>趨勢</button>
+      <button class="bnav" id="pn2" onclick="patPage(2)"><span class="bnav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></span>設定</button>
+    </div>
+
+    <!-- PAT PAGE 0: 記錄 -->
+    <div class="page on" id="pp0">
+      <div class="content">
+        <div class="card">
+          <div class="card-title">記錄資訊</div>
+          <div class="row2">
+            <div class="field"><label>日期</label><input type="date" id="p-date"></div>
+            <div class="field"><label>時段</label>
+              <select id="p-time">
+                <option value="morning">早晨</option>
+                <option value="evening">傍晚</option>
+                <option value="other">其他</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">PEF</div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <input class="pef-input" type="number" id="p-pef" placeholder="450" min="50" max="900" inputmode="numeric">
+            <span style="font-size:13px;color:var(--sub)">L/min</span>
+          </div>
+          <div class="result-panel" id="p-result" style="display:none">
+            <div class="result-row">
+              <div class="dot" id="p-dot"></div>
+              <div>
+                <div class="result-main" id="p-rmain">—</div>
+                <div class="result-sub" id="p-rsub"></div>
+              </div>
+            </div>
+          </div>
+          <div class="zone-grid" id="p-zones" style="display:none">
+            <div class="zc zc-g"><div class="zc-lbl">🟢 綠燈</div><div class="zc-val" id="p-zg">—</div></div>
+            <div class="zc zc-y"><div class="zc-lbl">🟡 黃燈</div><div class="zc-val" id="p-zy">—</div></div>
+            <div class="zc zc-r"><div class="zc-lbl">🔴 紅燈</div><div class="zc-val" id="p-zr">—</div></div>
+          </div>
+
+          <!-- 變異度選配 -->
+          <button class="var-toggle" id="p-varToggle" onclick="pToggleVar()">
+            <span id="p-varArrow">▶</span> 早晚變異度（選配）
+          </button>
+          <div class="var-body" id="p-varBody">
+            <div class="var-inputs">
+              <div class="field"><label>早晨</label><input type="number" id="p-am" placeholder="早" min="50" max="900" inputmode="numeric"></div>
+              <div class="var-sep">↔</div>
+              <div class="field"><label>傍晚</label><input type="number" id="p-pm" placeholder="晚" min="50" max="900" inputmode="numeric"></div>
+            </div>
+            <div class="var-result" id="p-varResult" style="display:none">
+              <div>
+                <div style="font-size:10px;color:var(--sub);margin-bottom:1px">日內變異度</div>
+                <div class="var-num" id="p-varNum">—</div>
+              </div>
+              <div class="var-msg" id="p-varMsg"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">ACT</div>
+          <div id="p-actWrap"></div>
+          <div class="act-total">
+            <div class="act-score" id="p-actScore">—</div>
+            <div class="act-label" id="p-actLabel">請完成所有 5 題</div>
+          </div>
+        </div>
+
+        <button class="save-btn" onclick="pSave()">儲存本次記錄</button>
+      </div>
+    </div>
+
+    <!-- PAT PAGE 1: 趨勢 -->
+    <div class="page" id="pp1">
+      <div class="content">
+        <div class="tab-row">
+          <button class="htab on" id="ht90" onclick="setDays(90)">近3個月</button>
+          <button class="htab" id="ht30" onclick="setDays(30)">近30天</button>
+          <button class="htab" id="ht7" onclick="setDays(7)">近7天</button>
+        </div>
+        <div class="card">
+          <div class="card-title">PEF % 趨勢</div>
+          <div class="chart-wrap"><canvas id="chartPef"></canvas></div>
+          <div class="c-legend">
+            <div class="c-leg"><div class="c-dot" style="background:#2563eb"></div>PEF %</div>
+            <div class="c-leg"><div class="c-dot" style="background:#16a34a"></div>80% 線</div>
+            <div class="c-leg"><div class="c-dot" style="background:#d97706"></div>60% 線</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">早晚變異度</div>
+          <div class="chart-wrap"><canvas id="chartVar"></canvas></div>
+          <div class="c-legend">
+            <div class="c-leg"><div class="c-dot" style="background:#8b5cf6"></div>變異度%</div>
+            <div class="c-leg"><div class="c-dot" style="background:#dc2626"></div>20%警戒</div>
+          </div>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden">
+          <div style="padding:12px 14px;border-bottom:1px solid var(--border)">
+            <div class="card-title" style="margin:0">記錄列表</div>
+          </div>
+          <div id="p-histList"></div>
+        </div>
+        <button class="export-btn" onclick="pExport()">匯出 CSV</button>
+      </div>
+    </div>
+
+    <!-- PAT PAGE 2: 設定 -->
+    <div class="page" id="pp2">
+      <div class="content">
+        <div class="card">
+          <div class="card-title">個人資料</div>
+          <div class="field"><label>姓名（選填，僅存於本機）</label><input type="text" id="s-name" placeholder="王小明"></div>
+          <div class="field">
+            <label>性別</label>
+            <div class="g-row">
+              <button class="g-btn on" id="s-bM" onclick="sSetG('M')">男</button>
+              <button class="g-btn" id="s-bF" onclick="sSetG('F')">女</button>
+            </div>
+          </div>
+          <div class="row2">
+            <div class="field"><label>身高 (cm)</label><input type="number" id="s-ht" placeholder="165" min="100" max="220" inputmode="numeric"></div>
+            <div class="field"><label>年齡 (歲)</label><input type="number" id="s-ag" placeholder="40" min="1" max="120" inputmode="numeric"></div>
+          </div>
+          <div class="field">
+            <label>個人最佳 PEF（L/min，選填）</label>
+            <input type="number" id="s-best" placeholder="留空則用預估值" min="100" max="900" inputmode="numeric">
+            <div class="hint">氣喘穩定控制 2–3 週後的最高值，優先於預估值使用</div>
+          </div>
+          <div class="pred-show" id="s-predShow"></div>
+          <button class="save-btn" style="margin-top:10px" onclick="sSave()">儲存設定</button>
+        </div>
+        <div class="card">
+          <div class="card-title">預估值公式</div>
+          <div style="font-size:12px;color:var(--sub);line-height:2">
+            <span class="src src-tw">臺北榮總胸腔部</span><br>
+            <b>男：</b><span class="mono">3.89×身高 − 2.95×年齡 + 43.59</span><br>
+            <b>女：</b><span class="mono">4.10×身高 − 1.61×年齡 − 173.55</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">資料管理</div>
+          <div class="set-row">
+            <div><div class="set-lbl">本機儲存筆數</div><div class="set-hint">資料僅存於此裝置瀏覽器</div></div>
+            <div class="set-val" id="s-count">0 筆</div>
+          </div>
+          <button class="export-btn" onclick="pExport()">匯出 CSV</button>
+          <button class="danger-btn" onclick="pClearAll()">清除所有記錄</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /patMode -->
+</div><!-- /appShell -->
+
+<!-- MODAL -->
+<div class="modal-bg" id="detailModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">×</button>
+    <div class="modal-title">記錄詳細</div>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<script>
+// ═══ SHARED DATA ═══
+var DGEX='M', SGEX='M';
+var DANS=[null,null,null,null,null];
+var PANS=[null,null,null,null,null];
+var dVarOpen=false, pVarOpen=false;
+var histDays=90;
+var chartPef=null, chartVar=null;
+
+var QS=[
+  {q:"過去4週，氣喘有多少時間妨礙你完成日常活動？",opts:["一直如此","大部分時間","有些時候","很少","從未"],sc:[1,2,3,4,5]},
+  {q:"過去4週，你有多頻繁地感到呼吸困難？",opts:["每天>1次","每天1次","每週3–6次","每週1–2次","從未"],sc:[1,2,3,4,5]},
+  {q:"過去4週，你有多頻繁因氣喘在夜間醒來？",opts:["≥4晚/週","2–3晚/週","1晚/週","1–2次/月","從未"],sc:[1,2,3,4,5]},
+  {q:"過去4週，你有多頻繁使用急救吸入劑？",opts:["≥3次/天","1–2次/天","2–3次/週","≤1次/週","從未"],sc:[1,2,3,4,5]},
+  {q:"你如何評估過去4週的氣喘控制情況？",opts:["完全未控制","控制很差","有些控制","控制良好","完全控制"],sc:[1,2,3,4,5]}
+];
+
+// ═══ UTILS ═══
+function today(){var d=new Date(),m=d.getMonth()+1,dd=d.getDate();return d.getFullYear()+'-'+(m<10?'0'+m:m)+'-'+(dd<10?'0'+dd:dd);}
+function fmtD(s){if(!s)return'';var p=s.split('-');return p[0]+'/'+p[1]+'/'+p[2];}
+function calcPred(h,a,sex){return sex==='M'?3.89*h-2.95*a+43.59:4.10*h-1.61*a-173.55;}
+function getZone(pct){return pct>=80?'g':pct>=60?'y':'r';}
+function getZoneLabel(z){return z==='g'?'🟢 綠燈 — 控制佳':z==='y'?'🟡 黃燈 — 須警覺':'🔴 紅燈 — 需立即處置';}
+
+// ═══ CONFIG / RECORDS ═══
+function getCfg(){try{return JSON.parse(localStorage.getItem('pef_cfg')||'{}');}catch(e){return{};}}
+function setCfg(c){localStorage.setItem('pef_cfg',JSON.stringify(c));}
+function getRecs(){try{return JSON.parse(localStorage.getItem('pef_recs')||'[]');}catch(e){return[];}}
+function setRecs(r){localStorage.setItem('pef_recs',JSON.stringify(r));}
+function getBest(){var c=getCfg();if(c.best&&c.best>0)return c.best;if(c.h&&c.a)return calcPred(c.h,c.a,c.sex||'M');return null;}
+
+// ═══ MODE ═══
+function enterMode(m){
+  localStorage.setItem('pef_mode',m);
+  document.getElementById('modeSelect').style.display='none';
+  document.getElementById('appShell').style.display='block';
+  applyMode(m);
+}
+function applyMode(m){
+  var isDoc=m==='doc';
+  document.getElementById('docMode').style.display=isDoc?'block':'none';
+  document.getElementById('patMode').style.display=isDoc?'none':'block';
+  document.getElementById('patNav').style.display=isDoc?'none':'flex';
+  document.getElementById('modeLabel').textContent=isDoc?'醫師模式':'病人模式';
+  document.getElementById('appShell').className=isDoc?'mode-doc':'mode-pat';
+  if(isDoc){dInit();}else{pInit();}
+}
+function switchMode(){
+  document.getElementById('appShell').style.display='none';
+  document.getElementById('modeSelect').style.display='flex';
+}
+
+// ═══════════════════════════════
+// DOC MODE
+// ═══════════════════════════════
+function dInit(){
+  document.getElementById('d-date').value=today();
+  buildAct('d',DANS);
+  ['d-ht','d-ag','d-pef'].forEach(function(id){document.getElementById(id).addEventListener('input',dCalc);});
+  ['d-am','d-pm'].forEach(function(id){document.getElementById(id).addEventListener('input',dCalcVar);});
+  dCalc();
+}
+function dSetG(g){DGEX=g;document.getElementById('d-bM').className='g-btn'+(g==='M'?' on':'');document.getElementById('d-bF').className='g-btn'+(g==='F'?' on':'');dCalc();}
+function dToggleVar(){
+  dVarOpen=!dVarOpen;
+  document.getElementById('d-varBody').className='var-body'+(dVarOpen?' open':'');
+  document.getElementById('d-varArrow').textContent=dVarOpen?'▼':'▶';
+}
+function dCalcVar(){
+  var am=parseFloat(document.getElementById('d-am').value);
+  var pm=parseFloat(document.getElementById('d-pm').value);
+  var vr=document.getElementById('d-varResult');
+  if(!am||!pm||isNaN(am)||isNaN(pm)){vr.style.display='none';dUpdReport();return;}
+  var hi=Math.max(am,pm),lo=Math.min(am,pm);
+  var v=Math.round((hi-lo)/hi*100);
+  vr.style.display='flex';
+  vr.className='var-result'+(v>20?' warn':'');
+  document.getElementById('d-varNum').textContent=v+'%';
+  var g10=v>10,g20=v>20;
+  var msg='';
+  if(g20) msg='<b style="color:#9a3412">! >20% 不穩定</b><br>建議聯絡醫師';
+  else if(g10) msg='<b style="color:#92400e">注意 >10%</b><br>GINA診斷門檻';
+  else msg='<span style="color:#14532d">✓ 穩定</span>';
+  document.getElementById('d-varMsg').innerHTML=msg;
+  dUpdReport();
+}
+function dCalc(){
+  var h=parseFloat(document.getElementById('d-ht').value);
+  var a=parseFloat(document.getElementById('d-ag').value);
+  var pef=parseFloat(document.getElementById('d-pef').value);
+  var rp=document.getElementById('d-result');
+  var zg=document.getElementById('d-zones');
+  if(!h||!a||h<50||a<1){rp.style.display='none';zg.style.display='none';dUpdReport();return;}
+  var p=calcPred(h,a,DGEX);
+  document.getElementById('d-zg').textContent='≥'+Math.round(p*0.80)+' L/min';
+  document.getElementById('d-zy').textContent=Math.round(p*0.60)+'–'+Math.round(p*0.79)+' L/min';
+  document.getElementById('d-zr').textContent='<'+Math.round(p*0.60)+' L/min';
+  zg.style.display='grid';
+  if(!pef||isNaN(pef)){rp.style.display='none';dUpdReport();return;}
+  var pct=Math.round(pef/p*100);
+  var z=getZone(pct);
+  rp.style.display='block';rp.className='result-panel '+z;
+  document.getElementById('d-dot').className='dot '+z;
+  document.getElementById('d-rmain').innerHTML=Math.round(pef)+' L/min<span class="pct-badge pct-'+z+'">'+pct+'%</span>';
+  document.getElementById('d-rsub').textContent=getZoneLabel(z)+'　（預估值 '+Math.round(p)+' L/min）';
+  // orange warning: green zone but var >20
+  dUpdReport();
+}
+function dUpdReport(){
+  var dateStr=fmtD(document.getElementById('d-date').value);
+  var h=parseFloat(document.getElementById('d-ht').value);
+  var a=parseFloat(document.getElementById('d-ag').value);
+  var pef=parseFloat(document.getElementById('d-pef').value);
+  var el=document.getElementById('d-report');
+  if(!h||!a||!pef||isNaN(pef)){el.textContent='（請輸入身高、年齡及實測 PEF）';return;}
+  var p=calcPred(h,a,DGEX);
+  var pct=Math.round(pef/p*100);
+  var zl=getZone(pct)==='g'?'[綠燈]':getZone(pct)==='y'?'[黃燈]':'[紅燈]';
+  // ACT
+  var actDone=DANS.filter(function(x){return x!==null;}).length;
+  var actStr='';
+  if(actDone===5){var tot=0;for(var i=0;i<5;i++)tot+=QS[i].sc[DANS[i]];actStr='  ACT: '+tot;}
+  // VAR
+  var am=parseFloat(document.getElementById('d-am').value);
+  var pm=parseFloat(document.getElementById('d-pm').value);
+  var varStr='';
+  if(am&&pm&&!isNaN(am)&&!isNaN(pm)){
+    var hi=Math.max(am,pm),lo=Math.min(am,pm);
+    var v=Math.round((hi-lo)/hi*100);
+    varStr='  變異度: '+v+'%'+(v>20?' (!>20%)':'');
+  }
+  var line1=dateStr+'  PEF '+Math.round(pef)+' L/min ('+pct+'%) '+zl+actStr+varStr;
+  var line2='綠燈(>=80%): >='+Math.round(p*0.8)+'  黃燈(60-79%): '+Math.round(p*0.6)+'-'+Math.round(p*0.79)+'  紅燈(<60%): <'+Math.round(p*0.6)+' L/min';
+  el.textContent=line1+'\n'+line2;
+}
+function dCopy(){
+  var text=document.getElementById('d-report').textContent;
+  if(text.charAt(0)==='（')return;
+  navigator.clipboard.writeText(text).then(function(){
+    var btn=document.getElementById('d-copyBtn');
+    btn.textContent='✓ 已複製！';btn.className='copy-btn done';
+    setTimeout(function(){btn.textContent='一鍵複製報告';btn.className='copy-btn';},2000);
+  }).catch(function(){
+    var ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
+    alert('已複製');
+  });
+}
+
+// ═══════════════════════════════
+// ACT SHARED BUILD
+// ═══════════════════════════════
+function buildAct(prefix,ans){
+  var wrap=document.getElementById(prefix+'-actWrap');
+  wrap.innerHTML='';
+  for(var qi=0;qi<QS.length;qi++){
+    (function(qi){
+      var q=QS[qi];var div=document.createElement('div');div.className='act-q';
+      var qt=document.createElement('div');qt.className='act-qtxt';
+      qt.innerHTML='<span class="act-qnum">Q'+(qi+1)+'．</span>'+q.q;div.appendChild(qt);
+      var od=document.createElement('div');od.className='opts';
+      q.opts.forEach(function(o,oi){
+        var btn=document.createElement('button');btn.className='opt'+(ans[qi]===oi?' on':'');
+        btn.textContent=o;
+        btn.onclick=function(){
+          ans[qi]=oi;buildAct(prefix,ans);calcActScore(prefix,ans);
+          if(prefix==='d') dUpdReport();
+        };
+        od.appendChild(btn);
+      });
+      div.appendChild(od);wrap.appendChild(div);
+    })(qi);
+  }
+}
+function calcActScore(prefix,ans){
+  var done=ans.filter(function(x){return x!==null;}).length;
+  var sEl=document.getElementById(prefix+'-actScore');
+  var lEl=document.getElementById(prefix+'-actLabel');
+  if(done<5){sEl.textContent='—';lEl.textContent='已作答 '+done+'/5 題';return;}
+  var tot=0;for(var i=0;i<5;i++)tot+=QS[i].sc[ans[i]];
+  sEl.textContent=tot;
+  if(tot>=20)lEl.innerHTML='<b style="color:var(--green)">控制良好</b>（≥20）';
+  else if(tot>=16)lEl.innerHTML='<b style="color:var(--yellow)">部分控制</b>（16–19，建議調整治療）';
+  else lEl.innerHTML='<b style="color:var(--red)">未控制</b>（≤15，請儘速就醫）';
+}
+
+// ═══════════════════════════════
+// PATIENT MODE
+// ═══════════════════════════════
+function pInit(){
+  document.getElementById('p-date').value=today();
+  loadSettings();
+  buildAct('p',PANS);
+  document.getElementById('p-pef').addEventListener('input',pCalc);
+  ['p-am','p-pm'].forEach(function(id){document.getElementById(id).addEventListener('input',pCalcVar);});
+  updateCount();
+  patPage(0);
+}
+function patPage(i){
+  [0,1,2].forEach(function(j){
+    document.getElementById('pp'+j).className='page'+(j===i?' on':'');
+    document.getElementById('pn'+j).className='bnav'+(j===i?' on':'');
+  });
+  if(i===1) renderHistory();
+  if(i===2){loadSettings();updateCount();}
+}
+function sSetG(g){SGEX=g;document.getElementById('s-bM').className='g-btn'+(g==='M'?' on':'');document.getElementById('s-bF').className='g-btn'+(g==='F'?' on':'');}
+function loadSettings(){
+  var c=getCfg();
+  if(c.name) document.getElementById('s-name').value=c.name;
+  if(c.sex){SGEX=c.sex;sSetG(c.sex);}
+  if(c.h) document.getElementById('s-ht').value=c.h;
+  if(c.a) document.getElementById('s-ag').value=c.a;
+  if(c.best) document.getElementById('s-best').value=c.best;
+  updPredShow();
+}
+function sSave(){
+  var cfg={name:document.getElementById('s-name').value,sex:SGEX,h:parseFloat(document.getElementById('s-ht').value)||null,a:parseFloat(document.getElementById('s-ag').value)||null,best:parseFloat(document.getElementById('s-best').value)||null};
+  setCfg(cfg);updPredShow();updateCount();
+  alert('✅ 設定已儲存');pCalc();
+}
+function updPredShow(){
+  var c=getCfg();var el=document.getElementById('s-predShow');
+  if(c.h&&c.a){
+    var p=calcPred(c.h,c.a,c.sex||'M');
+    el.innerHTML='預估值：<b class="mono" style="color:var(--blue);font-size:16px">'+Math.round(p)+' L/min</b>';
+    if(c.best) el.innerHTML+='<br>個人最佳（優先）：<b class="mono" style="color:var(--green)">'+c.best+' L/min</b>';
+  } else {el.textContent='請填入身高與年齡以顯示預估值';}
+}
+function updateCount(){document.getElementById('s-count').textContent=getRecs().length+' 筆';}
+
+function pToggleVar(){
+  pVarOpen=!pVarOpen;
+  document.getElementById('p-varBody').className='var-body'+(pVarOpen?' open':'');
+  document.getElementById('p-varArrow').textContent=pVarOpen?'▼':'▶';
+}
+function pCalcVar(){
+  var am=parseFloat(document.getElementById('p-am').value);
+  var pm=parseFloat(document.getElementById('p-pm').value);
+  var vr=document.getElementById('p-varResult');
+  if(!am||!pm||isNaN(am)||isNaN(pm)){vr.style.display='none';return;}
+  var hi=Math.max(am,pm),lo=Math.min(am,pm);
+  var v=Math.round((hi-lo)/hi*100);
+  vr.style.display='flex';vr.className='var-result'+(v>20?' warn':'');
+  document.getElementById('p-varNum').textContent=v+'%';
+  document.getElementById('p-varMsg').innerHTML=v>20?'<b style="color:#9a3412">! >20% 不穩定</b><br>建議回診':'<span style="color:#14532d">✓ 穩定</span>';
+}
+function pCalc(){
+  var best=getBest();
+  var pef=parseFloat(document.getElementById('p-pef').value);
+  var rp=document.getElementById('p-result');var zg=document.getElementById('p-zones');
+  if(!best){rp.style.display='none';zg.style.display='none';return;}
+  var c=getCfg();
+  document.getElementById('p-zg').textContent='≥'+Math.round(best*0.80)+' L/min';
+  document.getElementById('p-zy').textContent=Math.round(best*0.60)+'–'+Math.round(best*0.79)+' L/min';
+  document.getElementById('p-zr').textContent='<'+Math.round(best*0.60)+' L/min';
+  zg.style.display='grid';
+  if(!pef||isNaN(pef)){rp.style.display='none';return;}
+  var pct=Math.round(pef/best*100);var z=getZone(pct);
+  rp.style.display='block';rp.className='result-panel '+z;
+  document.getElementById('p-dot').className='dot '+z;
+  document.getElementById('p-rmain').innerHTML=Math.round(pef)+' L/min<span class="pct-badge pct-'+z+'">'+pct+'%</span>';
+  document.getElementById('p-rsub').textContent=getZoneLabel(z)+'　（基準 '+Math.round(best)+' L/min）';
+}
+function pSave(){
+  var best=getBest();
+  if(!best){alert('請先到「設定」頁填入身高、年齡');patPage(2);return;}
+  var pef=parseFloat(document.getElementById('p-pef').value);
+  if(!pef||isNaN(pef)||pef<50){alert('請輸入有效的 PEF 數值');return;}
+  var pct=Math.round(pef/best*100);
+  var am=parseFloat(document.getElementById('p-am').value);
+  var pm=parseFloat(document.getElementById('p-pm').value);
+  var varPct=null;
+  if(am&&pm&&!isNaN(am)&&!isNaN(pm)){var hi=Math.max(am,pm),lo=Math.min(am,pm);varPct=Math.round((hi-lo)/hi*100);}
+  var actDone=PANS.filter(function(x){return x!==null;}).length;
+  var actScore=null;
+  if(actDone===5){actScore=0;for(var i=0;i<5;i++)actScore+=QS[i].sc[PANS[i]];}
+  var rec={id:Date.now(),date:document.getElementById('p-date').value,time:document.getElementById('p-time').value,pef:Math.round(pef),pct:pct,zone:getZone(pct),best:Math.round(best),varAM:am||null,varPM:pm||null,varPct:varPct,actScore:actScore};
+  var recs=getRecs();recs.unshift(rec);setRecs(recs);
+  // reset
+  document.getElementById('p-pef').value='';
+  document.getElementById('p-am').value='';document.getElementById('p-pm').value='';
+  document.getElementById('p-result').style.display='none';
+  document.getElementById('p-zones').style.display='none';
+  document.getElementById('p-varResult').style.display='none';
+  PANS=[null,null,null,null,null];buildAct('p',PANS);calcActScore('p',PANS);
+  alert('✅ 已儲存！\n'+fmtD(rec.date)+'  PEF '+rec.pef+' L/min ('+rec.pct+'%)'+(rec.actScore!==null?' ACT:'+rec.actScore:''));
+  updateCount();
+}
+
+// ═══ HISTORY ═══
+function setDays(d){
+  histDays=d;
+  [7,30,90].forEach(function(x){document.getElementById('ht'+x).className='htab'+(x===d?' on':'');});
+  renderHistory();
+}
+function getFiltered(){
+  var recs=getRecs();var cut=new Date();cut.setDate(cut.getDate()-histDays);
+  var cs=cut.toISOString().slice(0,10);
+  return recs.filter(function(r){return r.date>=cs;});
+}
+function renderHistory(){
+  var recs=getFiltered();
+  renderCharts(recs);renderList(recs);
+}
+function renderList(recs){
+  var el=document.getElementById('p-histList');
+  if(!recs.length){el.innerHTML='<div class="empty">此期間無記錄</div>';return;}
+  el.innerHTML='';
+  var tmap={morning:'早晨',evening:'傍晚',other:'其他'};
+  recs.forEach(function(r){
+    var d=document.createElement('div');d.className='rec-item';
+    var tl=tmap[r.time]||r.time;
+    d.innerHTML='<div><div class="rec-date">'+fmtD(r.date)+'<span style="font-size:10px;color:var(--sub);margin-left:4px">'+tl+'</span></div>'
+      +'<div class="rec-pef">'+r.pef+' L/min</div></div>'
+      +'<div class="rec-right"><span class="zbadge zbadge-'+r.zone+'">'+r.pct+'%</span>'
+      +(r.actScore!==null?'<span class="rec-meta">ACT '+r.actScore+'</span>':'')
+      +(r.varPct!==null?'<span class="rec-meta">變異 '+r.varPct+'%'+(r.varPct>20?' ⚠️':'')+'</span>':'')
+      +'</div>';
+    d.onclick=function(){showDetail(r);};
+    el.appendChild(d);
+  });
+}
+function renderCharts(recs){
+  var sorted=recs.slice().sort(function(a,b){return a.date.localeCompare(b.date);});
+  var labels=sorted.map(function(r){return r.date.slice(5);});
+  var pcts=sorted.map(function(r){return r.pct;});
+  var ptColors=sorted.map(function(r){return r.zone==='g'?'#16a34a':r.zone==='y'?'#d97706':'#dc2626';});
+  var ctx1=document.getElementById('chartPef').getContext('2d');
+  if(chartPef)chartPef.destroy();
+  chartPef=new Chart(ctx1,{type:'line',data:{labels:labels,datasets:[
+    {label:'PEF %',data:pcts,borderColor:'#2563eb',backgroundColor:'rgba(37,99,235,.08)',pointBackgroundColor:ptColors,pointRadius:5,tension:.3,fill:true},
+    {label:'80%',data:labels.map(function(){return 80;}),borderColor:'rgba(22,163,74,.5)',borderDash:[4,4],pointRadius:0,borderWidth:1.5},
+    {label:'60%',data:labels.map(function(){return 60;}),borderColor:'rgba(217,119,6,.5)',borderDash:[4,4],pointRadius:0,borderWidth:1.5}
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{min:0,max:110,ticks:{font:{size:10}}},x:{grid:{display:false},ticks:{font:{size:9},maxTicksLimit:10}}}}});
+
+  var vRecs=sorted.filter(function(r){return r.varPct!==null;});
+  var vLabels=vRecs.map(function(r){return r.date.slice(5);});
+  var vVals=vRecs.map(function(r){return r.varPct;});
+  var vColors=vVals.map(function(v){return v>20?'rgba(220,38,38,.8)':'rgba(139,92,246,.8)';});
+  var ctx2=document.getElementById('chartVar').getContext('2d');
+  if(chartVar)chartVar.destroy();
+  chartVar=new Chart(ctx2,{type:'bar',data:{labels:vLabels,datasets:[
+    {label:'變異度%',data:vVals,backgroundColor:vColors,borderRadius:4},
+    {label:'20%',data:vLabels.map(function(){return 20;}),type:'line',borderColor:'rgba(220,38,38,.6)',borderDash:[4,4],pointRadius:0,borderWidth:1.5,backgroundColor:'transparent'}
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{min:0,ticks:{font:{size:10},callback:function(v){return v+'%';}}},x:{grid:{display:false},ticks:{font:{size:9},maxTicksLimit:10}}}}});
+}
+
+// ═══ DETAIL MODAL ═══
+function showDetail(r){
+  var tmap={morning:'早晨',evening:'傍晚',other:'其他'};
+  var html='<div style="font-size:13px;line-height:2;color:var(--sub)">'
+    +'<b style="color:var(--text)">日期：</b>'+fmtD(r.date)+'（'+( tmap[r.time]||r.time)+'）<br>'
+    +'<b style="color:var(--text)">PEF：</b><span class="mono" style="font-size:16px;color:var(--text)">'+r.pef+' L/min ('+r.pct+'%)</span><br>'
+    +'<b style="color:var(--text)">燈號：</b>'+getZoneLabel(r.zone)+'<br>'
+    +'<b style="color:var(--text)">基準值：</b>'+r.best+' L/min<br>'
+    +(r.varPct!==null?'<b style="color:var(--text)">變異度：</b>'+r.varPct+'% '+(r.varPct>20?'⚠️ 偏高':'✓ 正常')+'<br>':'')
+    +(r.actScore!==null?'<b style="color:var(--text)">ACT：</b>'+r.actScore+'<br>':'')
+    +'</div>';
+  html+='<button class="del-btn" onclick="delRec('+r.id+')">刪除此筆記錄</button>';
+  document.getElementById('modalContent').innerHTML=html;
+  document.getElementById('detailModal').classList.add('open');
+}
+function closeModal(){document.getElementById('detailModal').classList.remove('open');}
+function delRec(id){
+  if(!confirm('確定刪除？'))return;
+  setRecs(getRecs().filter(function(r){return r.id!==id;}));
+  closeModal();renderHistory();updateCount();
+}
+document.getElementById('detailModal').addEventListener('click',function(e){if(e.target===this)closeModal();});
+
+// ═══ EXPORT ═══
+function pExport(){
+  var recs=getRecs();if(!recs.length){alert('尚無記錄');return;}
+  var rows=[['日期','時段','PEF(L/min)','PEF%','燈號','早晨PEF','傍晚PEF','變異度%','ACT','基準值']];
+  var tmap={morning:'早晨',evening:'傍晚',other:'其他'};
+  var zmap={g:'綠燈',y:'黃燈',r:'紅燈'};
+  recs.forEach(function(r){rows.push([r.date,tmap[r.time]||r.time,r.pef,r.pct,zmap[r.zone]||'',r.varAM||'',r.varPM||'',r.varPct!==null?r.varPct:'',r.actScore!==null?r.actScore:'',r.best]);});
+  var csv=rows.map(function(r){return r.join(',');}).join('\n');
+  var blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');a.href=url;a.download='PEF_'+today()+'.csv';a.click();
+  URL.revokeObjectURL(url);
+}
+function pClearAll(){
+  if(!confirm('確定清除所有記錄？無法復原。'))return;
+  localStorage.removeItem('pef_recs');
+  renderHistory();updateCount();alert('已清除');
+}
+
+// ═══ BOOT ═══
+(function(){
+  var m=localStorage.getItem('pef_mode');
+  if(m){enterMode(m);}
+  else{document.getElementById('modeSelect').style.display='flex';}
+})();
+</script>
+</body>
+</html>
