@@ -267,9 +267,12 @@ body{font-family:'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif;ba
         </div>
 
         <!-- 變異度選配 -->
-        <button class="var-toggle" id="d-varToggle" onclick="dToggleVar()">
-          <span id="d-varArrow">▶</span> 早晚變異度（選配）
-        </button>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
+          <button class="var-toggle" id="d-varToggle" onclick="dToggleVar()">
+            <span id="d-varArrow">▶</span> 早晚變異度（選配）
+          </button>
+          <button id="d-varClear" onclick="dClearVar()" style="display:none;font-size:11px;color:var(--red);background:none;border:1px solid var(--red-b);border-radius:6px;padding:3px 9px;cursor:pointer;font-family:inherit">清除</button>
+        </div>
         <div class="var-body" id="d-varBody">
           <div class="var-inputs">
             <div class="field"><label>早晨 L/min</label><input type="number" id="d-am" placeholder="早" min="50" max="900" inputmode="numeric"></div>
@@ -308,9 +311,14 @@ body{font-family:'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif;ba
       <div class="card">
         <div class="card-title">報告複製</div>
         <div class="report-box" id="d-report">（請輸入 PEF 後自動產生）</div>
-        <button class="copy-btn" id="d-copyBtn" onclick="dCopy()">
-          一鍵複製報告
-        </button>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <button class="copy-btn" id="d-copyBtn1" onclick="dCopy(1)">
+            複製1<span style="font-size:11px;font-weight:400;display:block">貼病歷</span>
+          </button>
+          <button class="copy-btn" id="d-copyBtn2" onclick="dCopy(2)" style="background:#0f766e">
+            複製2<span style="font-size:11px;font-weight:400;display:block">含公式（技術員）</span>
+          </button>
+        </div>
       </div>
 
     </div><!-- /content -->
@@ -554,6 +562,13 @@ function dToggleVar(){
   dVarOpen=!dVarOpen;
   document.getElementById('d-varBody').className='var-body'+(dVarOpen?' open':'');
   document.getElementById('d-varArrow').textContent=dVarOpen?'▼':'▶';
+  document.getElementById('d-varClear').style.display=dVarOpen?'inline-block':'none';
+}
+function dClearVar(){
+  document.getElementById('d-am').value='';
+  document.getElementById('d-pm').value='';
+  document.getElementById('d-varResult').style.display='none';
+  dUpdReport();
 }
 function dCalcVar(){
   var am=parseFloat(document.getElementById('d-am').value);
@@ -618,17 +633,28 @@ function dUpdReport(){
     var v=Math.round((hi-lo)/hi*100);
     varStr='  變異度: '+v+'%'+(v>20?' (!>20%)':'');
   }
+  var sexLabel=DGEX==='M'?'男':'女';
   var line1=dateStr+'  PEF '+Math.round(pef)+' L/min ('+pct+'%) '+zl+actStr+varStr;
   var line2='綠燈(>=80%): >='+Math.round(p*0.8)+'  黃燈(60-79%): '+Math.round(p*0.6)+'-'+Math.round(p*0.79)+'  紅燈(<60%): <'+Math.round(p*0.6)+' L/min';
-  el.textContent=line1+'\n'+line2;
+  var line3='身高: '+h+'cm  年齡: '+a+'歲  性別: '+sexLabel+'  預估值: '+Math.round(p)+' L/min';
+  var formula=DGEX==='M'?'男: 3.89 x H - 2.95 x A + 43.59':'女: 4.10 x H - 1.61 x A - 173.55';
+  var line4='公式('+formula+') L/min';
+  // store all lines for copy buttons
+  el._line1=line1;el._line2=line2;el._line3=line3;el._line4=line4;
+  el.textContent=line1+'\n'+line2+'\n'+line3;
 }
-function dCopy(){
-  var text=document.getElementById('d-report').textContent;
-  if(text.charAt(0)==='（')return;
+function dCopy(n){
+  var el=document.getElementById('d-report');
+  if(!el._line1)return;
+  var text=n===1
+    ? el._line1+'\n'+el._line2+'\n'+el._line3
+    : el._line1+'\n'+el._line2+'\n'+el._line3+'\n'+el._line4;
+  var btnId=n===1?'d-copyBtn1':'d-copyBtn2';
+  var origHTML=document.getElementById(btnId).innerHTML;
   navigator.clipboard.writeText(text).then(function(){
-    var btn=document.getElementById('d-copyBtn');
-    btn.textContent='✓ 已複製！';btn.className='copy-btn done';
-    setTimeout(function(){btn.textContent='一鍵複製報告';btn.className='copy-btn';},2000);
+    var btn=document.getElementById(btnId);
+    btn.innerHTML='已複製！';btn.className='copy-btn done';
+    setTimeout(function(){btn.innerHTML=origHTML;btn.className='copy-btn'+(n===2?' style="background:#0f766e"':'');},2000);
   }).catch(function(){
     var ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
     alert('已複製');
